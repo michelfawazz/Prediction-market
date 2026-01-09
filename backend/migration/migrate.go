@@ -92,6 +92,12 @@ func MigrateDB(db *gorm.DB) error {
 			&models.Market{},
 			&models.Bet{},
 			&models.HomepageContent{},
+			// Wallet/crypto models
+			&models.Wallet{},
+			&models.SupportedChain{},
+			&models.SupportedToken{},
+			&models.CryptoTransaction{},
+			&models.WithdrawalRequest{},
 		); err != nil {
 			return fmt.Errorf("fallback AutoMigrate failed: %w", err)
 		}

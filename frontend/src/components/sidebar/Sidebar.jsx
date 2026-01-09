@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../helpers/AuthContent'
 import useUserCredit from '../utils/userFinanceTools/FetchUserCredit';
 import LoginModalButton from '../modals/login/LoginModalClick';
+import { WalletModal } from '../wallet';
 import {
   AboutSVG,
   AdminGearSVG,
@@ -20,6 +21,13 @@ import {
   StatsSVG,
 } from '../../assets/components/SvgIcons';
 
+// Wallet icon component
+const WalletSVG = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+  </svg>
+);
+
 const SidebarLink = ({ to, icon: Icon, children, onClick }) => (
   <li>
     <Link
@@ -36,9 +44,12 @@ const SidebarLink = ({ to, icon: Icon, children, onClick }) => (
 const Sidebar = () => {
   const { isLoggedIn, usertype, logout, changePasswordNeeded, username } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const { userCredit, loading, error } = useUserCredit(username); // Correct destructuring
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const openWallet = () => setIsWalletOpen(true);
+  const closeWallet = () => setIsWalletOpen(false);
 
   const renderCredit = () => {
     if (loading) return <p>Loading...</p>;  // Check usage here
@@ -134,7 +145,16 @@ const Sidebar = () => {
       <>
         <SidebarLink to='/profile' icon={CoinsSVG} >
           {renderCredit()}
-        </SidebarLink>      
+        </SidebarLink>
+        <li>
+          <button
+            onClick={openWallet}
+            className='flex items-center w-full p-2 text-gray-300 rounded-lg hover:bg-gray-700 group transition-colors duration-200'
+          >
+            <WalletSVG className='w-5 h-5 text-gray-400 group-hover:text-white transition-colors duration-200' />
+            <span className='ml-3 text-sm'>Wallet</span>
+          </button>
+        </li>
         <SidebarLink to='/' icon={HomeSVG}>
           Home
         </SidebarLink>
@@ -229,6 +249,8 @@ const Sidebar = () => {
           </button>
         </div>
       )}
+      {/* Wallet Modal */}
+      <WalletModal isOpen={isWalletOpen} onClose={closeWallet} />
     </>
   );
 };

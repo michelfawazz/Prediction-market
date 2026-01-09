@@ -20,8 +20,10 @@ import (
 	usercredit "socialpredict/handlers/users/credit"
 	privateuser "socialpredict/handlers/users/privateuser"
 	"socialpredict/handlers/users/publicuser"
+	wallethandlers "socialpredict/handlers/wallet"
 	"socialpredict/middleware"
 	"socialpredict/security"
+	"socialpredict/services/dfns"
 	"socialpredict/setup"
 	"socialpredict/util"
 	"strconv"
@@ -169,6 +171,41 @@ func Start() {
 
 	router.HandleFunc("/v0/content/home", homepageHandler.PublicGet).Methods("GET")
 	router.Handle("/v0/admin/content/home", securityMiddleware(http.HandlerFunc(homepageHandler.AdminUpdate))).Methods("PUT")
+
+	// Initialize DFNS client
+	dfnsConfig := dfns.LoadConfigFromEnv()
+	var dfnsClient *dfns.Client
+	if dfnsConfig.IsConfigured() {
+		var err error
+		dfnsClient, err = dfns.NewClient(dfnsConfig)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize DFNS client: %v", err)
+		} else {
+			log.Printf("DFNS client initialized successfully")
+		}
+	} else {
+		log.Printf("Warning: DFNS not configured - wallet features will be limited")
+	}
+
+	// Wallet routes - user facing
+	router.Handle("/v0/wallet/deposit/{chain}", securityMiddleware(http.HandlerFunc(wallethandlers.GetDepositAddressHandler(dfnsClient)))).Methods("GET")
+	router.Handle("/v0/wallet/deposits", securityMiddleware(http.HandlerFunc(wallethandlers.GetAllDepositAddressesHandler(dfnsClient)))).Methods("GET")
+	router.Handle("/v0/wallet/withdraw", securityMiddleware(http.HandlerFunc(wallethandlers.InitiateWithdrawalHandler(dfnsClient)))).Methods("POST")
+	router.Handle("/v0/wallet/withdrawals", securityMiddleware(http.HandlerFunc(wallethandlers.GetUserWithdrawalsHandler))).Methods("GET")
+	router.Handle("/v0/wallet/transactions", securityMiddleware(http.HandlerFunc(wallethandlers.GetTransactionHistoryHandler))).Methods("GET")
+	router.Handle("/v0/wallet/chains", securityMiddleware(http.HandlerFunc(wallethandlers.GetSupportedChainsHandler))).Methods("GET")
+	router.Handle("/v0/wallet/tokens", securityMiddleware(http.HandlerFunc(wallethandlers.GetSupportedTokensHandler))).Methods("GET")
+	router.Handle("/v0/wallet/info", securityMiddleware(http.HandlerFunc(wallethandlers.GetWalletInfoHandler))).Methods("GET")
+
+	// DFNS webhook endpoint (no auth - uses signature verification)
+	router.HandleFunc("/v0/webhook/dfns", wallethandlers.DFNSWebhookHandler).Methods("POST")
+
+	// Admin withdrawal management routes
+	router.Handle("/v0/admin/withdrawals", securityMiddleware(http.HandlerFunc(adminhandlers.ListWithdrawalRequestsHandler))).Methods("GET")
+	router.Handle("/v0/admin/withdrawals/stats", securityMiddleware(http.HandlerFunc(adminhandlers.GetWithdrawalStatsHandler))).Methods("GET")
+	router.Handle("/v0/admin/withdrawals/{id}", securityMiddleware(http.HandlerFunc(adminhandlers.GetWithdrawalDetailsHandler))).Methods("GET")
+	router.Handle("/v0/admin/withdrawals/{id}/approve", securityMiddleware(http.HandlerFunc(adminhandlers.ApproveWithdrawalHandler(dfnsClient)))).Methods("POST")
+	router.Handle("/v0/admin/withdrawals/{id}/reject", securityMiddleware(http.HandlerFunc(adminhandlers.RejectWithdrawalHandler))).Methods("POST")
 
 	// Apply CORS middleware if enabled
 	handler := http.Handler(router)
