@@ -8,6 +8,8 @@ import (
 	"socialpredict/services/dfns"
 	"socialpredict/util"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // WithdrawalLimits defines the withdrawal limits
@@ -65,9 +67,9 @@ func InitiateWithdrawalHandler(dfnsClient *dfns.Client) http.HandlerFunc {
 			return
 		}
 
-		// Validate destination address format
-		if !dfns.IsValidEVMAddress(req.ToAddress) {
-			http.Error(w, "Invalid destination address", http.StatusBadRequest)
+		// Validate destination address format based on chain type
+		if !dfns.IsValidAddress(req.ToAddress, req.ChainName) {
+			http.Error(w, "Invalid destination address for this chain", http.StatusBadRequest)
 			return
 		}
 
@@ -193,7 +195,7 @@ func GetUserWithdrawalsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkDailyWithdrawalLimit checks if the user has exceeded daily withdrawal limits
-func checkDailyWithdrawalLimit(db interface{ Model(value interface{}) interface{ Where(query interface{}, args ...interface{}) interface{ Select(query interface{}, args ...interface{}) interface{ Scan(dest interface{}) error } } } }, userID int64, amount int64) error {
+func checkDailyWithdrawalLimit(db *gorm.DB, userID int64, amount int64) error {
 	today := time.Now().Truncate(24 * time.Hour)
 
 	var dailyTotal int64

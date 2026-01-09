@@ -3,16 +3,18 @@ package dfns
 import (
 	"math/big"
 	"regexp"
+	"strings"
 )
 
 var evmAddressRegex = regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
+var tronAddressRegex = regexp.MustCompile("^T[a-zA-Z0-9]{33}$")
 
 // ValidChains contains the valid chain names
 var ValidChains = map[string]bool{
-	"ethereum": true,
-	"polygon":  true,
-	"base":     true,
-	"arbitrum": true,
+	"ethereum":         true,
+	"ethereum-sepolia": true,
+	"tron":             true,
+	"tron-nile":        true,
 }
 
 // ValidTokens contains the valid token symbols
@@ -26,9 +28,32 @@ func IsValidEVMAddress(address string) bool {
 	return evmAddressRegex.MatchString(address)
 }
 
+// IsValidTronAddress validates a TRON address format
+func IsValidTronAddress(address string) bool {
+	return tronAddressRegex.MatchString(address)
+}
+
+// IsValidAddress validates an address for a given chain
+func IsValidAddress(address string, chainName string) bool {
+	if strings.HasPrefix(chainName, "tron") {
+		return IsValidTronAddress(address)
+	}
+	return IsValidEVMAddress(address)
+}
+
 // IsValidChainName validates a chain name
 func IsValidChainName(chain string) bool {
 	return ValidChains[chain]
+}
+
+// IsTronChain checks if the chain is TRON-based
+func IsTronChain(chainName string) bool {
+	return strings.HasPrefix(chainName, "tron")
+}
+
+// IsTestnet checks if the chain is a testnet
+func IsTestnet(chainName string) bool {
+	return strings.Contains(chainName, "sepolia") || strings.Contains(chainName, "nile")
 }
 
 // IsValidTokenSymbol validates a token symbol
@@ -73,26 +98,26 @@ func GetTokenDecimals(symbol string) int {
 
 // ChainIDToNetwork maps chain IDs to DFNS network names
 var ChainIDToNetwork = map[int64]string{
-	1:     "EthereumMainnet",
-	137:   "Polygon",
-	8453:  "Base",
-	42161: "ArbitrumOne",
+	1:          "EthereumMainnet",
+	11155111:   "EthereumSepolia",
+	728126428:  "Tron",
+	3448148188: "TronNile",
 }
 
 // NetworkToChainID maps DFNS network names to chain IDs
 var NetworkToChainID = map[string]int64{
 	"EthereumMainnet": 1,
-	"Polygon":         137,
-	"Base":            8453,
-	"ArbitrumOne":     42161,
+	"EthereumSepolia": 11155111,
+	"Tron":            728126428,
+	"TronNile":        3448148188,
 }
 
 // ChainNameToNetwork maps our chain names to DFNS network names
 var ChainNameToNetwork = map[string]string{
-	"ethereum": "EthereumMainnet",
-	"polygon":  "Polygon",
-	"base":     "Base",
-	"arbitrum": "ArbitrumOne",
+	"ethereum":         "EthereumMainnet",
+	"ethereum-sepolia": "EthereumSepolia",
+	"tron":             "Tron",
+	"tron-nile":        "TronNile",
 }
 
 // GetDFNSNetwork returns the DFNS network name for a chain name

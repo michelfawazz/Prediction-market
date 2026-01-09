@@ -122,8 +122,8 @@ func ApproveWithdrawalHandler(dfnsClient *dfns.Client) http.HandlerFunc {
 		// Get withdrawal ID from URL
 		vars := mux.Vars(r)
 		withdrawalIDStr := vars["id"]
-		withdrawalID, err := strconv.ParseUint(withdrawalIDStr, 10, 32)
-		if err != nil {
+		withdrawalID, parseErr := strconv.ParseUint(withdrawalIDStr, 10, 32)
+		if parseErr != nil {
 			http.Error(w, "Invalid withdrawal ID", http.StatusBadRequest)
 			return
 		}
@@ -134,7 +134,7 @@ func ApproveWithdrawalHandler(dfnsClient *dfns.Client) http.HandlerFunc {
 
 		// Find the withdrawal request
 		var withdrawalReq models.WithdrawalRequest
-		if err := db.First(&withdrawalReq, withdrawalID).Error; err != nil {
+		if dbErr := db.First(&withdrawalReq, withdrawalID).Error; dbErr != nil {
 			http.Error(w, "Withdrawal request not found", http.StatusNotFound)
 			return
 		}
@@ -189,9 +189,9 @@ func ApproveWithdrawalHandler(dfnsClient *dfns.Client) http.HandlerFunc {
 			Amount:   tokenAmount,
 		}
 
-		dfnsTransfer, err := dfnsClient.InitiateTransfer(wallet.DfnsWalletID, transferReq)
-		if err != nil {
-			log.Printf("Admin: Failed to initiate DFNS transfer for withdrawal %d: %v", withdrawalReq.ID, err)
+		dfnsTransfer, transferErr := dfnsClient.InitiateTransfer(wallet.DfnsWalletID, transferReq)
+		if transferErr != nil {
+			log.Printf("Admin: Failed to initiate DFNS transfer for withdrawal %d: %v", withdrawalReq.ID, transferErr)
 			http.Error(w, "Failed to initiate blockchain transfer", http.StatusInternalServerError)
 			return
 		}
@@ -261,15 +261,15 @@ func RejectWithdrawalHandler(w http.ResponseWriter, r *http.Request) {
 	// Get withdrawal ID from URL
 	vars := mux.Vars(r)
 	withdrawalIDStr := vars["id"]
-	withdrawalID, err := strconv.ParseUint(withdrawalIDStr, 10, 32)
-	if err != nil {
+	withdrawalID, parseErr := strconv.ParseUint(withdrawalIDStr, 10, 32)
+	if parseErr != nil {
 		http.Error(w, "Invalid withdrawal ID", http.StatusBadRequest)
 		return
 	}
 
 	// Parse request body
 	var req RejectWithdrawalRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}

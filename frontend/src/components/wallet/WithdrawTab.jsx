@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../../config';
 import { useAuth } from '../../helpers/AuthContent';
-import ChainSelector from './ChainSelector';
+import ChainSelector, { chains } from './ChainSelector';
 import TokenSelector from './TokenSelector';
 
 const WithdrawTab = ({ onClose }) => {
     const { username } = useAuth();
     const [userCredit, setUserCredit] = useState(0);
-    const [selectedChain, setSelectedChain] = useState('ethereum');
-    const [selectedToken, setSelectedToken] = useState('USDC');
+    const [selectedChain, setSelectedChain] = useState(chains[0]?.id || 'ethereum');
+    const [selectedToken, setSelectedToken] = useState('USDT'); // USDT more common on TRON
     const [amount, setAmount] = useState('');
     const [toAddress, setToAddress] = useState('');
     const [loading, setLoading] = useState(false);
@@ -79,8 +79,25 @@ const WithdrawTab = ({ onClose }) => {
         setAmount(userCredit.toString());
     };
 
+    // Check if selected chain is TRON-based
+    const isTronChain = selectedChain.startsWith('tron');
+
+    // Validate address based on chain type
     const isValidAddress = (addr) => {
+        if (isTronChain) {
+            // TRON addresses start with T and are 34 characters
+            return /^T[a-zA-Z0-9]{33}$/.test(addr);
+        }
+        // EVM addresses start with 0x and are 42 characters
         return /^0x[a-fA-F0-9]{40}$/.test(addr);
+    };
+
+    // Get placeholder text based on chain
+    const getAddressPlaceholder = () => {
+        if (isTronChain) {
+            return 'T...';
+        }
+        return '0x...';
     };
 
     const canSubmit = amount && parseInt(amount, 10) >= 10 && toAddress && isValidAddress(toAddress) && !loading;
@@ -162,12 +179,14 @@ const WithdrawTab = ({ onClose }) => {
 
             {/* Destination Address */}
             <div>
-                <label className="block text-gray-400 text-sm mb-2">Destination Address</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                    Destination Address {isTronChain ? '(TRON)' : '(EVM)'}
+                </label>
                 <input
                     type="text"
                     value={toAddress}
                     onChange={(e) => setToAddress(e.target.value)}
-                    placeholder="0x..."
+                    placeholder={getAddressPlaceholder()}
                     disabled={loading}
                     className={`w-full bg-gray-700 text-white rounded-lg px-4 py-3
                                border focus:outline-none font-mono text-sm
@@ -178,7 +197,9 @@ const WithdrawTab = ({ onClose }) => {
                     required
                 />
                 {toAddress && !isValidAddress(toAddress) && (
-                    <p className="text-red-400 text-xs mt-1">Invalid address format</p>
+                    <p className="text-red-400 text-xs mt-1">
+                        Invalid {isTronChain ? 'TRON' : 'EVM'} address format
+                    </p>
                 )}
             </div>
 

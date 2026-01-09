@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../../config';
-import ChainSelector from './ChainSelector';
+import ChainSelector, { chains } from './ChainSelector';
 import AddressDisplay from './AddressDisplay';
 
 const DepositTab = () => {
-    const [selectedChain, setSelectedChain] = useState('ethereum');
+    const [selectedChain, setSelectedChain] = useState(chains[0]?.id || 'ethereum');
     const [depositAddress, setDepositAddress] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);

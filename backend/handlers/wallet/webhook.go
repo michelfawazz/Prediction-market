@@ -9,6 +9,8 @@ import (
 	"socialpredict/services/dfns"
 	"socialpredict/util"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // DFNSWebhookHandler handles incoming webhooks from DFNS
@@ -245,9 +247,9 @@ func handleTransferFailed(event *dfns.WebhookEvent) {
 }
 
 // getTokenSymbolFromContract determines the token symbol from the contract address
-func getTokenSymbolFromContract(contract string, chainID int64, db interface{ Where(query interface{}, args ...interface{}) interface{ First(dest interface{}, conds ...interface{}) error } }) string {
+func getTokenSymbolFromContract(contract string, chainID int64, db *gorm.DB) string {
 	var chain models.SupportedChain
-	if err := db.Where("chain_id = ?", chainID).First(&chain); err != nil {
+	if err := db.Where("chain_id = ?", chainID).First(&chain).Error; err != nil {
 		return ""
 	}
 

@@ -11,6 +11,7 @@ import (
 	"socialpredict/util"
 
 	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
 
 // DepositAddressResponse represents a deposit address for a specific chain
@@ -128,7 +129,7 @@ func GetAllDepositAddressesHandler(dfnsClient *dfns.Client) http.HandlerFunc {
 }
 
 // createWalletForUser creates a new MPC wallet for a user on a specific chain
-func createWalletForUser(user *models.User, chainName string, dfnsClient *dfns.Client, db interface{ Create(value interface{}) interface{ Error() error } }) (*models.Wallet, error) {
+func createWalletForUser(user *models.User, chainName string, dfnsClient *dfns.Client, db *gorm.DB) (*models.Wallet, error) {
 	// Get DFNS network name for the chain
 	network := dfns.GetDFNSNetwork(chainName)
 	if network == "" {
@@ -163,7 +164,7 @@ func createWalletForUser(user *models.User, chainName string, dfnsClient *dfns.C
 		IsActive:     true,
 	}
 
-	if err := db.Create(wallet).Error(); err != nil {
+	if err := db.Create(wallet).Error; err != nil {
 		return nil, fmt.Errorf("failed to save wallet: %w", err)
 	}
 

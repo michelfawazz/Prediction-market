@@ -12,8 +12,8 @@ type Wallet struct {
 	ID           uint   `json:"id" gorm:"primary_key"`
 	UserID       int64  `json:"userId" gorm:"index;not null"`
 	DfnsWalletID string `json:"dfnsWalletId" gorm:"unique;not null"` // DFNS wallet identifier
-	ChainID      int64  `json:"chainId" gorm:"not null"`             // EVM chain ID (1=ETH, 137=Polygon, 8453=Base, 42161=Arbitrum)
-	ChainName    string `json:"chainName" gorm:"not null"`           // Human readable: "ethereum", "polygon", "base", "arbitrum"
+	ChainID      int64  `json:"chainId" gorm:"not null"`             // Chain ID (1=ETH mainnet, 11155111=Sepolia, 728126428=TRON, etc.)
+	ChainName    string `json:"chainName" gorm:"not null"`           // Human readable: "ethereum", "ethereum-sepolia", "tron", "tron-nile"
 	Address      string `json:"address" gorm:"index;not null"`       // Wallet address on this chain
 	IsActive     bool   `json:"isActive" gorm:"default:true"`
 }
@@ -50,11 +50,12 @@ var ChainInfo = map[string]struct {
 	ChainID     int64
 	DfnsNetwork string
 	DisplayName string
+	IsTestnet   bool
 }{
-	"ethereum": {ChainID: 1, DfnsNetwork: "EthereumMainnet", DisplayName: "Ethereum"},
-	"polygon":  {ChainID: 137, DfnsNetwork: "Polygon", DisplayName: "Polygon"},
-	"base":     {ChainID: 8453, DfnsNetwork: "Base", DisplayName: "Base"},
-	"arbitrum": {ChainID: 42161, DfnsNetwork: "ArbitrumOne", DisplayName: "Arbitrum"},
+	"ethereum":         {ChainID: 1, DfnsNetwork: "EthereumMainnet", DisplayName: "Ethereum", IsTestnet: false},
+	"ethereum-sepolia": {ChainID: 11155111, DfnsNetwork: "EthereumSepolia", DisplayName: "Ethereum Sepolia", IsTestnet: true},
+	"tron":             {ChainID: 728126428, DfnsNetwork: "Tron", DisplayName: "TRON", IsTestnet: false},
+	"tron-nile":        {ChainID: 3448148188, DfnsNetwork: "TronNile", DisplayName: "TRON Nile", IsTestnet: true},
 }
 
 // TokenInfo maps token symbols to their decimals

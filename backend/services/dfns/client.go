@@ -2,99 +2,64 @@ package dfns
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"time"
+
+	"github.com/dfns/dfns-sdk-go/credentials"
+	api "github.com/dfns/dfns-sdk-go/dfnsapiclient"
 )
 
 // Client is the DFNS API client
 type Client struct {
 	config     Config
 	httpClient *http.Client
-	privateKey *rsa.PrivateKey
+	dfnsClient *http.Client
 }
 
 // NewClient creates a new DFNS client
 func NewClient(config Config) (*Client, error) {
 	client := &Client{
 		config: config,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
 	}
 
-	// Load private key if path is provided
-	if config.ServiceKeyPath != "" {
-		key, err := loadPrivateKey(config.ServiceKeyPath)
+	// Load private key content
+	privateKey := config.PrivateKey
+	if privateKey == "" && config.PrivateKeyPath != "" {
+		keyData, err := os.ReadFile(config.PrivateKeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load private key: %w", err)
+			return nil, fmt.Errorf("failed to read private key file: %w", err)
 		}
-		client.privateKey = key
+		privateKey = string(keyData)
 	}
+
+	// Create the DFNS signer (no error returned)
+	signer := credentials.NewAsymmetricKeySigner(&credentials.AsymmetricKeySignerConfig{
+		PrivateKey: privateKey,
+		CredID:     config.CredentialID,
+	})
+
+	// Create the DFNS API client options
+	// Note: OrgID and AuthToken are pointers in the config
+	orgID := config.OrgID
+	authToken := config.ServiceAccountToken
+
+	apiOptions, err := api.NewDfnsAPIOptions(&api.DfnsAPIConfig{
+		OrgID:     &orgID,
+		AuthToken: &authToken,
+		BaseURL:   config.BaseURL,
+	}, signer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API options: %w", err)
+	}
+
+	// Create the DFNS HTTP client (handles signing automatically)
+	client.dfnsClient = api.CreateDfnsAPIClient(apiOptions)
+	client.httpClient = &http.Client{}
 
 	return client, nil
-}
-
-// loadPrivateKey loads an RSA private key from a PEM file
-func loadPrivateKey(path string) (*rsa.PrivateKey, error) {
-	keyData, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read key file: %w", err)
-	}
-
-	block, _ := pem.Decode(keyData)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	// Try parsing as PKCS8 first (more common for DFNS)
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		// Fallback to PKCS1
-		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse private key: %w", err)
-		}
-	}
-
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("key is not an RSA private key")
-	}
-
-	return rsaKey, nil
-}
-
-// signRequest creates a signature for DFNS API authentication
-func (c *Client) signRequest(method, path string, body []byte) (string, string, error) {
-	if c.privateKey == nil {
-		return "", "", fmt.Errorf("no private key configured")
-	}
-
-	timestamp := time.Now().UTC().Format(time.RFC3339)
-
-	// Create the message to sign
-	// DFNS uses: method + path + timestamp + body
-	message := fmt.Sprintf("%s%s%s%s", method, path, timestamp, string(body))
-	hash := sha256.Sum256([]byte(message))
-
-	// Sign with RSA-SHA256
-	signature, err := rsa.SignPKCS1v15(rand.Reader, c.privateKey, crypto.SHA256, hash[:])
-	if err != nil {
-		return "", "", fmt.Errorf("failed to sign: %w", err)
-	}
-
-	return base64.StdEncoding.EncodeToString(signature), timestamp, nil
 }
 
 // doRequest performs an authenticated request to the DFNS API
@@ -116,22 +81,10 @@ func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-DFNS-APPID", c.config.AppID)
-	req.Header.Set("X-DFNS-NONCE", generateNonce())
 
-	// Sign the request if we have a private key
-	if c.privateKey != nil {
-		signature, timestamp, err := c.signRequest(method, path, bodyBytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to sign request: %w", err)
-		}
-		req.Header.Set("X-DFNS-SIGNATURE", signature)
-		req.Header.Set("X-DFNS-TIMESTAMP", timestamp)
-	}
-
-	resp, err := c.httpClient.Do(req)
+	// Use the DFNS client which handles signing automatically
+	resp, err := c.dfnsClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -147,13 +100,6 @@ func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error
 	}
 
 	return respBody, nil
-}
-
-// generateNonce generates a random nonce for request signing
-func generateNonce() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.StdEncoding.EncodeToString(b)
 }
 
 // APIError represents a DFNS API error
